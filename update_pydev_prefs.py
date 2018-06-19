@@ -68,7 +68,8 @@ def main(ctx, source=None):
                         err('Did not find hooks in: %s' % (target,))
 
             for directory in dirs:
-                if os.path.exists(os.path.join(root, directory, '.pydevproject')):
+                pydevproject = os.path.join(root, directory, '.pydevproject')
+                if os.path.exists(pydevproject):
                     # Ok, found a .pydevproject, so, we have to set the
                     # new settings to be used.
                     settings_dir = os.path.join(root, directory, '.settings')
@@ -81,6 +82,33 @@ def main(ctx, source=None):
                         out('Creating: %s' % (target,))
                     with io.open(target, 'wb') as stream:
                         stream.write(contents)
+
+                    with io.open(pydevproject, 'r') as stream:
+                        pydevproject_contents = stream.read()
+
+                    new_lines = []
+                    found_version = -1
+                    found_additional = -1
+                    for i, line in enumerate(pydevproject_contents.splitlines()):
+                        if line.startswith('<pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">'):
+                            assert line.endswith('</pydev_property>')
+                            new_lines.append('<pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">python 3.6</pydev_property>')
+                            found_version = i
+
+                        elif line.startswith('<pydev_property name="org.python.pydev.PYTHON_ADDITIONAL_GRAMMAR_VALIDATION">'):
+                            assert line.endswith('</pydev_property>')
+                            new_lines.append('<pydev_property name="org.python.pydev.PYTHON_ADDITIONAL_GRAMMAR_VALIDATION">2.7</pydev_property>')
+                            found_additional = i
+
+                        else:
+                            new_lines.append(line)
+
+                    assert found_version >= 0
+                    if found_additional == -1:
+                        new_lines.insert(found_version + 1, '<pydev_property name="org.python.pydev.PYTHON_ADDITIONAL_GRAMMAR_VALIDATION">2.7</pydev_property>')
+
+                    with io.open(pydevproject, 'w') as stream:
+                        stream.write('\n'.join(new_lines))
 
     out('Finished')
     ctx.exit(0)
